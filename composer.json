@@ -1,0 +1,53 @@
+{
+    "name": "prompt-armor/prompt-armor",
+    "description": "Defends PHP apps against prompt injection with layered detection, sanitization and optional LLM auditing",
+    "license": "MIT",
+    "type": "library",
+    "keywords": [
+        "prompt-injection",
+        "llm",
+        "ai-safety",
+        "security",
+        "owasp",
+        "laravel"
+    ],
+    "authors": [
+        {
+            "name": "Prompt Armor Team"
+        }
+    ],
+    "require": {
+        "php": "^8.2"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.5",
+        "laravel/framework": "^10.0",
+        "orchestra/testbench": "^8.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "PromptArmor\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "PromptArmor\\Tests\\": "tests/"
+        }
+    },
+    "suggest": {
+        "openai-php/client": "^4.0 for optional LLM SelfAuditor feature"
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "PromptArmor\\Laravel\\PromptArmorServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "php-http/discovery": true
+        }
+    }
+}
