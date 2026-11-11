@@ -27,6 +27,7 @@ Prompt injection is now a top OWASP risk for LLM-powered web apps. While most de
 - Smart sanitization that strips or escapes dangerous segments while preserving intent
 - Normalized 0-1 risk scores with per-signal breakdowns for easy policy decisions
 - Laravel middleware for one-line protection of configurable request keys
+- Symfony bundle with autowiring, validated config and service registration
 - Optional LLM auditing (via `openai-php/client`) that fails-open and never blocks legitimate traffic
 
 ## 🎬 Demo
@@ -43,7 +44,7 @@ Prompt injection is now a top OWASP risk for LLM-powered web apps. While most de
 </tr>
 <tr>
 <td>📋 <b>Rich Reports</b><br>Immutable Report objects with explanations, matched patterns and suggested fixes</td>
-<td>🌐 <b>Laravel Middleware</b><br>One-line middleware that inspects configurable request keys</td>
+<td>🌐 <b>Framework Integrations</b><br>Laravel middleware + Symfony bundle with config and autowiring</td>
 <td>🤖 <b>Optional LLM Audit</b><br>Secondary validation via OpenAI using defensive system prompts (loaded only when enabled)</td>
 </tr>
 <tr>
@@ -74,6 +75,8 @@ Run the included example:
 ```bash
 php examples/basic-usage.php
 ```
+
+The Symfony bundle is auto-enabled when using Symfony Flex.
 
 ## ⚡ Quick start
 
@@ -169,6 +172,54 @@ The middleware automatically aborts unsafe requests with a 403.
 
 </details>
 
+<details><summary>Advanced: Symfony bundle</summary>
+
+The bundle registers a `prompt_armor` service that is autowired and configured via `config/packages/prompt_armor.yaml` (or `.php`).
+
+```yaml
+# config/packages/prompt_armor.yaml
+prompt_armor:
+    risk_threshold: 0.65
+    enabled_detectors: ['heuristic', 'keyword']
+    sanitize_mode: 'strip'
+    llm_enabled: false
+    llm_model: 'gpt-4o-mini'
+```
+
+Usage in a controller or service:
+
+```php
+use PromptArmor\PromptArmor;
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+
+class PromptController extends AbstractController
+{
+    public function __construct(private PromptArmor $armor)
+    {
+    }
+
+    public function submit(Request $request): Response
+    {
+        $prompt = $request->get('prompt');
+        $report = $this->armor->analyze($prompt, ['source' => 'symfony_form']);
+
+        if (!$report->isSafe()) {
+            return new Response('Prompt injection detected', 403);
+        }
+
+        // send sanitized prompt to LLM
+        $safePrompt = $report->getSanitizedPrompt();
+        // ...
+    }
+}
+```
+
+The configuration is validated at container compile time. All options from the table below are supported.
+
+</details>
+
 <details><summary>Advanced: Manual LLM audit</summary>
 
 ```php
@@ -190,10 +241,10 @@ $llmScore = $auditor->audit($prompt); // returns 0.0-1.0, cached by prompt hash
 | enabled_detectors   | `['heuristic', 'keyword']`  | Detectors to run (`heuristic`, `keyword`) |
 | custom_patterns     | `[]`                        | Additional patterns for `HeuristicDetector` (list of arrays with name, regex, weight, explanation) |
 | sanitize_mode       | `'strip'`                   | `'strip'` (remove commands/delimiters) or `'escape'` |
-| llm_enabled         | `false`                     | Whether to run `SelfAuditor` after heuristic/keyword checks |
+| llm_enabled         | `false`                     | Whether to run `SelfAuditor` after heuristic/keyword checks (blended into final score) |
 | llm_model           | `'gpt-4o-mini'`             | Model used by `SelfAuditor` when LLM auditing is enabled |
 
-Pass via constructor, `withConfig()`, or (in Laravel) the published `config/prompt-armor.php`.
+Pass via constructor, `withConfig()`, Symfony config, or (in Laravel) the published `config/prompt-armor.php`.
 
 ## 🧩 Architecture
 
@@ -207,10 +258,11 @@ flowchart TD
     PromptArmor -.-> SelfAuditor["SelfAuditor (optional)<br>audit() via OpenAI"]
     PromptArmor --> Report
     LaravelMiddleware["PromptArmorMiddleware"] --> PromptArmor
+    SymfonyBundle["PromptArmorBundle + Extension"] --> PromptArmor
     Report --> Consumer["Application / Logs / Policy"]
 ```
 
-`PromptArmor` coordinates detectors that implement `DetectorInterface::detect()`. Signals feed the `RiskScorer` and are combined with sanitization results into an immutable `Report`. The optional `SelfAuditor` provides secondary LLM validation and is loaded only when `llm_enabled` is true. All core classes are zero-dependency; the Laravel middleware respects the published config.
+`PromptArmor` coordinates detectors that implement `DetectorInterface::detect()`. Signals feed the `RiskScorer` and are combined with sanitization results into an immutable `Report`. The optional `SelfAuditor` provides secondary LLM validation and is loaded only when `llm_enabled` is true. All core classes are zero-dependency; the Laravel middleware and Symfony bundle respect the published/defined config.
 
 ## 📁 Project structure
 
@@ -226,6 +278,11 @@ src/
 │   └── KeywordDetector.php      # Fast keyword/phrase scanner
 ├── Laravel/
 │   └── PromptArmorMiddleware.php # Auto-protects configurable request keys
+├── Symfony/
+│   ├── PromptArmorBundle.php
+│   └── DependencyInjection/
+│       ├── Configuration.php
+│       └── PromptArmorExtension.php
 └── LLM/
     └── SelfAuditor.php      # Optional OpenAI-based audit with in-memory cache
 
@@ -245,12 +302,12 @@ examples/
 vendor/bin/phpunit
 ```
 
-The test suite covers 45+ cases for benign prompts, classic injections, encoded/obfuscated attacks, edge cases, plus integration tests for `PromptArmor`, `Report`, `Sanitizer`, `RiskScorer`, `HeuristicDetector` and `KeywordDetector`.
+The test suite covers 45+ cases for benign prompts, classic injections, encoded/obfuscated attacks, edge cases, plus integration tests for `PromptArmor`, `Report`, `Sanitizer`, `RiskScorer`, `HeuristicDetector` and `KeywordDetector`. Symfony bundle configuration validation is also exercised.
 
 ## 📍 Roadmap
 <!-- roadmap:start -->
 - [x] **v0.1.0** — first release: Multi-Layer Detection, Smart Sanitization, Risk Scoring, Rich Reports
-- [ ] Symfony bundle with service provider and config
+- [x] Symfony bundle with service provider and config
 - [ ] CLI binary (via symfony/console) to scan codebase for unsanitized LLM calls
 - [ ] Plugin API for user-supplied detectors implementing DetectorInterface
 - [ ] Local embedding similarity check against known jailbreak database

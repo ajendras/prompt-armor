@@ -9,7 +9,9 @@
         "ai-safety",
         "security",
         "owasp",
-        "laravel"
+        "laravel",
+        "symfony",
+        "bundle"
     ],
     "authors": [
         {
@@ -22,7 +24,11 @@
     "require-dev": {
         "phpunit/phpunit": "^10.5",
         "laravel/framework": "^10.0 || ^11.0",
-        "orchestra/testbench": "^8.0 || ^9.0"
+        "orchestra/testbench": "^8.0 || ^9.0",
+        "symfony/framework-bundle": "^6.4 || ^7.0",
+        "symfony/config": "^6.4 || ^7.0",
+        "symfony/dependency-injection": "^6.4 || ^7.0",
+        "symfony/yaml": "^6.4 || ^7.0"
     },
     "autoload": {
         "psr-4": {
@@ -42,6 +48,11 @@
             "providers": [
                 "PromptArmor\\Laravel\\PromptArmorServiceProvider"
             ]
+        },
+        "symfony": {
+            "bundles": {
+                "PromptArmor\\Symfony\\PromptArmorBundle": ["all"]
+            }
         }
     },
     "config": {
